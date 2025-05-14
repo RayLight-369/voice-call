@@ -264,7 +264,7 @@ const App = () => {
                     playsInline
                     muted
                     style={ { width: "100%", height: "auto" } }
-                    srcObject={ stream }
+                    src={ URL.createObjectURL( stream ) } // Use objectURL for video sources
                   ></video>
                   <div className="text-center text-sm bg-gray-200">{ user }</div>
                 </div>
@@ -280,7 +280,7 @@ const App = () => {
                     Close
                   </button>
                   <video
-                    srcObject={ viewScreen }
+                    src={ URL.createObjectURL( viewScreen ) } // Use objectURL for full-screen view
                     autoPlay
                     playsInline
                     muted
@@ -292,14 +292,15 @@ const App = () => {
           </div>
 
           <div className="mt-4">
-            <h2 className="font-semibold">Room Events:</h2>
-            <ul className="bg-gray-100 p-2 rounded max-h-48 overflow-y-auto text-sm">
-              { messageLog.map( ( log, index ) => (
-                <li key={ index }>
-                  [{ log.time }] { log.message }
-                </li>
+            <h2 className="font-semibold">Chat Log:</h2>
+            <div className="space-y-2">
+              { messageLog.map( ( msg, index ) => (
+                <div key={ index } className="text-sm">
+                  <span className="text-gray-500">{ msg.time } - </span>
+                  { msg.message }
+                </div>
               ) ) }
-            </ul>
+            </div>
           </div>
         </>
       ) }
