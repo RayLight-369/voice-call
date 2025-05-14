@@ -1,3 +1,4 @@
+// FRONTEND: App.js
 import React, { useEffect, useRef, useState } from "react";
 import { socket } from "./socket.io";
 import Peer from "peerjs";
@@ -20,7 +21,6 @@ const App = () => {
   const connectionsRef = useRef( {} );
   const screenConnectionsRef = useRef( {} );
   const audioAnalyzersRef = useRef( {} );
-  const videoRefs = useRef( {} ); // For managing video elements dynamically
 
   useEffect( () => {
     socket.connect();
@@ -257,14 +257,11 @@ const App = () => {
                   onClick={ () => setViewScreen( stream ) }
                 >
                   <video
-                    ref={ ( el ) => {
-                      videoRefs.current[ user ] = el;
-                    } }
+                    srcObject={ stream }
                     autoPlay
                     playsInline
                     muted
                     style={ { width: "100%", height: "auto" } }
-                    src={ URL.createObjectURL( stream ) } // Use objectURL for video sources
                   ></video>
                   <div className="text-center text-sm bg-gray-200">{ user }</div>
                 </div>
@@ -280,7 +277,7 @@ const App = () => {
                     Close
                   </button>
                   <video
-                    src={ URL.createObjectURL( viewScreen ) } // Use objectURL for full-screen view
+                    srcObject={ viewScreen }
                     autoPlay
                     playsInline
                     muted
@@ -292,15 +289,14 @@ const App = () => {
           </div>
 
           <div className="mt-4">
-            <h2 className="font-semibold">Chat Log:</h2>
-            <div className="space-y-2">
-              { messageLog.map( ( msg, index ) => (
-                <div key={ index } className="text-sm">
-                  <span className="text-gray-500">{ msg.time } - </span>
-                  { msg.message }
-                </div>
+            <h2 className="font-semibold">Room Events:</h2>
+            <ul className="bg-gray-100 p-2 rounded max-h-48 overflow-y-auto text-sm">
+              { messageLog.map( ( log, index ) => (
+                <li key={ index }>
+                  [{ log.time }] { log.message }
+                </li>
               ) ) }
-            </div>
+            </ul>
           </div>
         </>
       ) }
@@ -309,3 +305,6 @@ const App = () => {
 };
 
 export default App;
+
+// BACKEND doesn't need changes for screen sharing as it's handled via peerjs
+// No change required in the server-side socket.io code
