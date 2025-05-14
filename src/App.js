@@ -9,9 +9,12 @@ const App = () => {
   const [ room, setRoom ] = useState( "" );
   const [ participants, setParticipants ] = useState( [] );
   const [ messageLog, setMessageLog ] = useState( [] );
+  const [ speaking, setSpeaking ] = useState( {} );
+
   const localStreamRef = useRef( null );
   const peerRef = useRef( null );
   const connectionsRef = useRef( {} );
+  const audioAnalyzersRef = useRef( {} );
 
   useEffect( () => {
     socket.connect();
@@ -23,65 +26,88 @@ const App = () => {
   useEffect( () => {
     if ( !joined ) return;
 
-    const initPeerAndMedia = async () => {
-      const stream = await navigator.mediaDevices.getUserMedia( { audio: true } );
-      localStreamRef.current = stream;
+    const init = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia( { audio: true } );
+        localStreamRef.current = stream;
 
-      const peer = new Peer();
-      peerRef.current = peer;
+        detectSpeech( "You", stream );
 
-      peer.on( "open", id => {
-        socket.emit( "join-room", { name, room, peerId: id } );
-      } );
+        const peer = new Peer();
+        peerRef.current = peer;
 
-      peer.on( "call", call => {
-        call.answer( stream );
-        call.on( "stream", remoteStream => {
-          addAudio( remoteStream );
+        peer.on( "open", id => {
+          socket.emit( "join-room", { name, room, peerId: id } );
         } );
-      } );
 
-      socket.on( "users-in-room", users => {
-        setParticipants( users );
-      } );
+        peer.on( "call", call => {
+          call.answer( stream );
+          call.on( "stream", remoteStream => {
+            addAudio( call.metadata?.name || "Unknown", remoteStream );
+          } );
+        } );
 
-      socket.on( "user-joined", ( { name } ) => {
-        logEvent( `${ name } joined the room` );
-        showNotification( `${ name } joined the room` );
-      } );
+        socket.on( "users-in-room", users => {
+          setParticipants( users );
 
-      socket.on( "user-left", ( { name } ) => {
-        logEvent( `${ name } left the room` );
-        showNotification( `${ name } left the room` );
-      } );
+          users.forEach( user => {
+            if ( user.peerId === peer.id ) return;
+            if ( !connectionsRef.current[ user.peerId ] ) {
+              const call = peer.call( user.peerId, stream, { metadata: { name } } );
+              call.on( "stream", remoteStream => {
+                addAudio( user.name, remoteStream );
+              } );
+              connectionsRef.current[ user.peerId ] = call;
+            }
+          } );
+        } );
 
-      requestNotificationPermission();
+        socket.on( "user-joined", ( { name } ) => {
+          logEvent( `${ name } joined the room` );
+          showNotification( `${ name } joined the room` );
+        } );
+
+        socket.on( "user-left", ( { name, peerId } ) => {
+          logEvent( `${ name } left the room` );
+          showNotification( `${ name } left the room` );
+          delete speaking[ peerId ];
+        } );
+
+        requestNotificationPermission();
+      } catch ( err ) {
+        console.error( "Media init error:", err );
+        alert( "Mic access required." );
+      }
     };
 
-    initPeerAndMedia();
+    init();
   }, [ joined ] );
 
-  const logEvent = ( message ) => {
-    setMessageLog( prev => [ ...prev, { message, time: new Date().toLocaleTimeString() } ] );
+  const detectSpeech = ( id, stream ) => {
+    const audioContext = new AudioContext();
+    const analyser = audioContext.createAnalyser();
+    const source = audioContext.createMediaStreamSource( stream );
+    source.connect( analyser );
+
+    const dataArray = new Uint8Array( analyser.frequencyBinCount );
+    audioAnalyzersRef.current[ id ] = analyser;
+
+    const update = () => {
+      analyser.getByteFrequencyData( dataArray );
+      const avg = dataArray.reduce( ( a, b ) => a + b, 0 ) / dataArray.length;
+      setSpeaking( prev => ( { ...prev, [ id ]: avg > 20 } ) );
+      requestAnimationFrame( update );
+    };
+    update();
   };
 
-  const showNotification = ( text ) => {
-    if ( document.hidden && Notification.permission === "granted" ) {
-      new Notification( text );
-    }
-  };
-
-  const requestNotificationPermission = () => {
-    if ( "Notification" in window && Notification.permission !== "granted" ) {
-      Notification.requestPermission();
-    }
-  };
-
-  const addAudio = stream => {
+  const addAudio = ( id, stream ) => {
+    detectSpeech( id, stream );
     const audio = document.createElement( "audio" );
     audio.srcObject = stream;
     audio.autoplay = true;
     audio.playsInline = true;
+    audio.muted = false;
     document.body.appendChild( audio );
   };
 
@@ -99,25 +125,41 @@ const App = () => {
     }
   };
 
+  const logEvent = message => {
+    setMessageLog( prev => [ ...prev, { message, time: new Date().toLocaleTimeString() } ] );
+  };
+
+  const showNotification = text => {
+    if ( Notification.permission === "granted" ) {
+      new Notification( text );
+    }
+  };
+
+  const requestNotificationPermission = () => {
+    if ( "Notification" in window && Notification.permission !== "granted" ) {
+      Notification.requestPermission();
+    }
+  };
+
   return (
     <div className="p-4 space-y-4">
       { !joined ? (
         <div className="space-y-2">
           <input
             placeholder="Your Name"
-            className="border p-2 rounded"
+            className="border p-2 rounded w-full"
             value={ name }
             onChange={ e => setName( e.target.value ) }
           />
           <input
             placeholder="Room Name"
-            className="border p-2 rounded"
+            className="border p-2 rounded w-full"
             value={ room }
             onChange={ e => setRoom( e.target.value ) }
           />
           <button
             onClick={ handleJoin }
-            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 w-full"
           >
             Join Room
           </button>
@@ -134,10 +176,22 @@ const App = () => {
 
           <div className="mt-4">
             <h2 className="font-semibold">Participants:</h2>
-            <ul className="list-disc ml-6">
+            <ul className="space-y-1">
               { participants.map( p => (
-                <li key={ p.peerId }>{ p.name }</li>
+                <li
+                  key={ p.peerId }
+                  className={ `px-2 py-1 rounded ${ speaking[ p.name ] ? "border-2 border-green-500 animate-pulse" : "border border-gray-300"
+                    }` }
+                >
+                  { p.name }
+                </li>
               ) ) }
+              <li
+                className={ `px-2 py-1 rounded ${ speaking[ "You" ] ? "border-2 border-green-500 animate-pulse" : "border border-gray-300"
+                  }` }
+              >
+                You
+              </li>
             </ul>
           </div>
 
