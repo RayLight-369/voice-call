@@ -10,6 +10,7 @@ const App = () => {
   const [ participants, setParticipants ] = useState( [] );
   const [ messageLog, setMessageLog ] = useState( [] );
   const [ speaking, setSpeaking ] = useState( {} );
+  const [ noiseCancellation, setNoiseCancellation ] = useState( true );
 
   const localStreamRef = useRef( null );
   const peerRef = useRef( null );
@@ -18,9 +19,7 @@ const App = () => {
 
   useEffect( () => {
     socket.connect();
-    return () => {
-      socket.disconnect();
-    };
+    return () => socket.disconnect();
   }, [] );
 
   useEffect( () => {
@@ -28,33 +27,37 @@ const App = () => {
 
     const init = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia( { audio: true } );
-        localStreamRef.current = stream;
+        const stream = await navigator.mediaDevices.getUserMedia( {
+          audio: {
+            noiseSuppression: noiseCancellation,
+            echoCancellation: noiseCancellation,
+          },
+        } );
 
+        localStreamRef.current = stream;
         detectSpeech( "You", stream );
 
         const peer = new Peer();
         peerRef.current = peer;
 
-        peer.on( "open", id => {
+        peer.on( "open", ( id ) => {
           socket.emit( "join-room", { name, room, peerId: id } );
         } );
 
-        peer.on( "call", call => {
+        peer.on( "call", ( call ) => {
           call.answer( stream );
-          call.on( "stream", remoteStream => {
+          call.on( "stream", ( remoteStream ) => {
             addAudio( call.metadata?.name || "Unknown", remoteStream );
           } );
         } );
 
-        socket.on( "users-in-room", users => {
+        socket.on( "users-in-room", ( users ) => {
           setParticipants( users );
-
-          users.forEach( user => {
+          users.forEach( ( user ) => {
             if ( user.peerId === peer.id ) return;
             if ( !connectionsRef.current[ user.peerId ] ) {
               const call = peer.call( user.peerId, stream, { metadata: { name } } );
-              call.on( "stream", remoteStream => {
+              call.on( "stream", ( remoteStream ) => {
                 addAudio( user.name, remoteStream );
               } );
               connectionsRef.current[ user.peerId ] = call;
@@ -81,7 +84,7 @@ const App = () => {
     };
 
     init();
-  }, [ joined ] );
+  }, [ joined, noiseCancellation ] );
 
   const detectSpeech = ( id, stream ) => {
     const audioContext = new AudioContext();
@@ -95,7 +98,7 @@ const App = () => {
     const update = () => {
       analyser.getByteFrequencyData( dataArray );
       const avg = dataArray.reduce( ( a, b ) => a + b, 0 ) / dataArray.length;
-      setSpeaking( prev => ( { ...prev, [ id ]: avg > 20 } ) );
+      setSpeaking( ( prev ) => ( { ...prev, [ id ]: avg > 20 } ) );
       requestAnimationFrame( update );
     };
     update();
@@ -125,11 +128,14 @@ const App = () => {
     }
   };
 
-  const logEvent = message => {
-    setMessageLog( prev => [ ...prev, { message, time: new Date().toLocaleTimeString() } ] );
+  const logEvent = ( message ) => {
+    setMessageLog( ( prev ) => [
+      ...prev,
+      { message, time: new Date().toLocaleTimeString() },
+    ] );
   };
 
-  const showNotification = text => {
+  const showNotification = ( text ) => {
     if ( Notification.permission === "granted" ) {
       new Notification( text );
     }
@@ -149,14 +155,22 @@ const App = () => {
             placeholder="Your Name"
             className="border p-2 rounded w-full"
             value={ name }
-            onChange={ e => setName( e.target.value ) }
+            onChange={ ( e ) => setName( e.target.value ) }
           />
           <input
             placeholder="Room Name"
             className="border p-2 rounded w-full"
             value={ room }
-            onChange={ e => setRoom( e.target.value ) }
+            onChange={ ( e ) => setRoom( e.target.value ) }
           />
+          <label className="flex items-center space-x-2 text-sm">
+            <input
+              type="checkbox"
+              checked={ noiseCancellation }
+              onChange={ ( e ) => setNoiseCancellation( e.target.checked ) }
+            />
+            <span>Enable Noise Cancellation</span>
+          </label>
           <button
             onClick={ handleJoin }
             className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 w-full"
@@ -166,7 +180,9 @@ const App = () => {
         </div>
       ) : (
         <>
-          <h1 className="text-xl font-bold">🔊 Group Audio Call - Room: { room }</h1>
+          <h1 className="text-xl font-bold">
+            🔊 Group Audio Call - Room: { room }
+          </h1>
           <button
             onClick={ toggleMute }
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
@@ -177,16 +193,22 @@ const App = () => {
           <div className="mt-4">
             <h2 className="font-semibold">Participants:</h2>
             <div className="grid grid-cols-5 gap-4">
-              { participants.map( p => (
+              { participants.map( ( p ) => (
                 <div
                   key={ p.peerId }
-                  className={ `px-2 py-1 rounded ${ speaking[ p.name ] ? "border-2 border-green-500 animate-pulse" : "border border-gray-300" }` }
+                  className={ `px-2 py-1 rounded ${ speaking[ p.name ]
+                    ? "border-2 border-green-500 animate-pulse"
+                    : "border border-gray-300"
+                    }` }
                 >
                   { p.name }
                 </div>
               ) ) }
               <div
-                className={ `px-2 py-1 rounded ${ speaking[ "You" ] ? "border-2 border-green-500 animate-pulse" : "border border-gray-300" }` }
+                className={ `px-2 py-1 rounded ${ speaking[ "You" ]
+                  ? "border-2 border-green-500 animate-pulse"
+                  : "border border-gray-300"
+                  }` }
               >
                 You
               </div>
