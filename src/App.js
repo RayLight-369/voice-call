@@ -176,23 +176,21 @@ const App = () => {
 
           <div className="mt-4">
             <h2 className="font-semibold">Participants:</h2>
-            <ul className="space-y-1">
+            <div className="grid grid-cols-5 gap-4">
               { participants.map( p => (
-                <li
+                <div
                   key={ p.peerId }
-                  className={ `px-2 py-1 rounded ${ speaking[ p.name ] ? "border-2 border-green-500 animate-pulse" : "border border-gray-300"
-                    }` }
+                  className={ `px-2 py-1 rounded ${ speaking[ p.name ] ? "border-2 border-green-500 animate-pulse" : "border border-gray-300" }` }
                 >
                   { p.name }
-                </li>
+                </div>
               ) ) }
-              <li
-                className={ `px-2 py-1 rounded ${ speaking[ "You" ] ? "border-2 border-green-500 animate-pulse" : "border border-gray-300"
-                  }` }
+              <div
+                className={ `px-2 py-1 rounded ${ speaking[ "You" ] ? "border-2 border-green-500 animate-pulse" : "border border-gray-300" }` }
               >
                 You
-              </li>
-            </ul>
+              </div>
+            </div>
           </div>
 
           <div className="mt-4">
