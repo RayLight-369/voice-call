@@ -1,4 +1,3 @@
-// FRONTEND: App.js
 import React, { useEffect, useRef, useState } from "react";
 import { socket } from "./socket.io";
 import Peer from "peerjs";
@@ -21,6 +20,7 @@ const App = () => {
   const connectionsRef = useRef( {} );
   const screenConnectionsRef = useRef( {} );
   const audioAnalyzersRef = useRef( {} );
+  const videoRefs = useRef( {} ); // For managing video elements dynamically
 
   useEffect( () => {
     socket.connect();
@@ -257,11 +257,14 @@ const App = () => {
                   onClick={ () => setViewScreen( stream ) }
                 >
                   <video
-                    srcObject={ stream }
+                    ref={ ( el ) => {
+                      videoRefs.current[ user ] = el;
+                    } }
                     autoPlay
                     playsInline
                     muted
                     style={ { width: "100%", height: "auto" } }
+                    srcObject={ stream }
                   ></video>
                   <div className="text-center text-sm bg-gray-200">{ user }</div>
                 </div>
