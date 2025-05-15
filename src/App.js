@@ -32,6 +32,7 @@ const App = () => {
   const [ viewScreen, setViewScreen ] = useState( null );
   const [ socketStatus, setSocketStatus ] = useState( "disconnected" );
   const [ audioQuality, setAudioQuality ] = useState( "high" );
+  const [ isScreenSharing, setIsScreenSharing ] = useState( false );
 
   const localStreamRef = useRef( null );
   const screenStreamRef = useRef( null );
@@ -42,23 +43,10 @@ const App = () => {
   const screenRefs = useRef( {} );
   const currentVideoRef = useRef( null );
 
-  // Set up socket event listeners
   useEffect( () => {
-    // Socket connection status listeners
-    socket.on( "connect", () => {
-      setSocketStatus( "connected" );
-      console.log( "Socket connected:", socket.id );
-    } );
-
-    socket.on( "connect_error", ( error ) => {
-      setSocketStatus( "error" );
-      console.error( "Socket connection error:", error );
-    } );
-
-    socket.on( "disconnect", ( reason ) => {
-      setSocketStatus( "disconnected" );
-      console.log( "Socket disconnected:", reason );
-    } );
+    socket.on( "connect", () => setSocketStatus( "connected" ) );
+    socket.on( "connect_error", () => setSocketStatus( "error" ) );
+    socket.on( "disconnect", () => setSocketStatus( "disconnected" ) );
 
     return () => {
       socket.off( "connect" );
@@ -72,9 +60,7 @@ const App = () => {
 
     const init = async () => {
       try {
-        // Connect to socket server when joining
         socket.connect();
-
         const stream = await navigator.mediaDevices.getUserMedia( {
           audio: {
             noiseSuppression: noiseCancellation,
@@ -94,11 +80,9 @@ const App = () => {
 
         peer.on( "call", ( call ) => {
           const isScreenShare = call.metadata?.screen;
-          console.log( isScreenShare );
           if ( isScreenShare ) {
             call.answer();
             call.on( "stream", ( remoteStream ) => {
-              console.log( remoteStream );
               setScreens( ( prev ) => ( { ...prev, [ call.metadata.name ]: remoteStream } ) );
             } );
           } else {
@@ -113,12 +97,20 @@ const App = () => {
           setParticipants( users );
           users.forEach( ( user ) => {
             if ( user.peerId === peer.id ) return;
+
             if ( !connectionsRef.current[ user.peerId ] ) {
               const call = peer.call( user.peerId, stream, { metadata: { name } } );
               call.on( "stream", ( remoteStream ) => {
                 addAudio( user.name, remoteStream );
               } );
               connectionsRef.current[ user.peerId ] = call;
+            }
+
+            if ( isScreenSharing && screenStreamRef.current ) {
+              const call = peer.call( user.peerId, screenStreamRef.current, {
+                metadata: { name, screen: true },
+              } );
+              screenConnectionsRef.current[ user.peerId ] = call;
             }
           } );
         } );
@@ -132,6 +124,11 @@ const App = () => {
           logEvent( `${ name } left the room` );
           showNotification( `${ name } left the room` );
           delete speaking[ peerId ];
+          setScreens( ( prev ) => {
+            const updated = { ...prev };
+            delete updated[ name ];
+            return updated;
+          } );
         } );
 
         requestNotificationPermission();
@@ -143,27 +140,16 @@ const App = () => {
 
     init();
 
-    // Clean up function
     return () => {
-      // Disconnect socket when component unmounts or user leaves
-      if ( socket.connected ) {
-        socket.disconnect();
-      }
-
-      // Clean up socket event listeners
+      if ( socket.connected ) socket.disconnect();
       socket.off( "users-in-room" );
       socket.off( "user-joined" );
       socket.off( "user-left" );
 
-      // Clean up local stream
-      if ( localStreamRef.current ) {
-        localStreamRef.current.getTracks().forEach( ( track ) => track.stop() );
-      }
-
-      // Clean up screen share stream
-      if ( screenStreamRef.current ) {
-        screenStreamRef.current.getTracks().forEach( ( track ) => track.stop() );
-      }
+      if ( localStreamRef.current )
+        localStreamRef.current.getTracks().forEach( ( t ) => t.stop() );
+      if ( screenStreamRef.current )
+        screenStreamRef.current.getTracks().forEach( ( t ) => t.stop() );
     };
   }, [ joined, noiseCancellation ] );
 
@@ -172,7 +158,6 @@ const App = () => {
       const video = screenRefs.current[ user ];
       if ( video && video.srcObject !== stream ) {
         video.srcObject = stream;
-        console.log( `${ user } video mounted and stream assigned.` );
       }
     } );
   }, [ screens ] );
@@ -188,7 +173,6 @@ const App = () => {
     const analyser = audioContext.createAnalyser();
     const source = audioContext.createMediaStreamSource( stream );
     source.connect( analyser );
-
     const dataArray = new Uint8Array( analyser.frequencyBinCount );
     audioAnalyzersRef.current[ id ] = analyser;
 
@@ -224,13 +208,19 @@ const App = () => {
     try {
       const screenStream = await navigator.mediaDevices.getDisplayMedia( { video: true } );
       screenStreamRef.current = screenStream;
+      setIsScreenSharing( true );
 
-      // Add track ended listener to clean up when screen sharing stops
       screenStream.getVideoTracks()[ 0 ].addEventListener( "ended", () => {
         screenStreamRef.current = null;
-        // Notify other participants that screen sharing has ended
-        // This would require additional server-side implementation
+        setIsScreenSharing( false );
+        setScreens( ( prev ) => {
+          const updated = { ...prev };
+          delete updated[ name ];
+          return updated;
+        } );
       } );
+
+      setScreens( ( prev ) => ( { ...prev, [ name ]: screenStream } ) );
 
       participants.forEach( ( user ) => {
         if ( user.peerId === peerRef.current.id ) return;
