@@ -3,7 +3,21 @@
 import { useEffect, useRef, useState } from "react";
 import { socket } from "./socket.io";
 import Peer from "peerjs";
-import { Mic, MicOff, Monitor, Users, X, Volume2, MessageSquare } from "lucide-react";
+import {
+  Mic,
+  MicOff,
+  Monitor,
+  Users,
+  X,
+  Volume2,
+  MessageSquare,
+  Sparkles,
+  Settings,
+  ChevronRight,
+  Shield,
+  Zap,
+  Waves,
+} from "lucide-react";
 
 const App = () => {
   const [ muted, setMuted ] = useState( false );
@@ -16,6 +30,8 @@ const App = () => {
   const [ noiseCancellation, setNoiseCancellation ] = useState( true );
   const [ screens, setScreens ] = useState( {} );
   const [ viewScreen, setViewScreen ] = useState( null );
+  const [ socketStatus, setSocketStatus ] = useState( "disconnected" );
+  const [ audioQuality, setAudioQuality ] = useState( "high" );
 
   const localStreamRef = useRef( null );
   const screenStreamRef = useRef( null );
@@ -26,9 +42,29 @@ const App = () => {
   const screenRefs = useRef( {} );
   const currentVideoRef = useRef( null );
 
+  // Set up socket event listeners
   useEffect( () => {
-    socket.connect();
-    return () => socket.disconnect();
+    // Socket connection status listeners
+    socket.on( "connect", () => {
+      setSocketStatus( "connected" );
+      console.log( "Socket connected:", socket.id );
+    } );
+
+    socket.on( "connect_error", ( error ) => {
+      setSocketStatus( "error" );
+      console.error( "Socket connection error:", error );
+    } );
+
+    socket.on( "disconnect", ( reason ) => {
+      setSocketStatus( "disconnected" );
+      console.log( "Socket disconnected:", reason );
+    } );
+
+    return () => {
+      socket.off( "connect" );
+      socket.off( "connect_error" );
+      socket.off( "disconnect" );
+    };
   }, [] );
 
   useEffect( () => {
@@ -36,6 +72,9 @@ const App = () => {
 
     const init = async () => {
       try {
+        // Connect to socket server when joining
+        socket.connect();
+
         const stream = await navigator.mediaDevices.getUserMedia( {
           audio: {
             noiseSuppression: noiseCancellation,
@@ -103,6 +142,29 @@ const App = () => {
     };
 
     init();
+
+    // Clean up function
+    return () => {
+      // Disconnect socket when component unmounts or user leaves
+      if ( socket.connected ) {
+        socket.disconnect();
+      }
+
+      // Clean up socket event listeners
+      socket.off( "users-in-room" );
+      socket.off( "user-joined" );
+      socket.off( "user-left" );
+
+      // Clean up local stream
+      if ( localStreamRef.current ) {
+        localStreamRef.current.getTracks().forEach( ( track ) => track.stop() );
+      }
+
+      // Clean up screen share stream
+      if ( screenStreamRef.current ) {
+        screenStreamRef.current.getTracks().forEach( ( track ) => track.stop() );
+      }
+    };
   }, [ joined, noiseCancellation ] );
 
   useEffect( () => {
@@ -162,6 +224,14 @@ const App = () => {
     try {
       const screenStream = await navigator.mediaDevices.getDisplayMedia( { video: true } );
       screenStreamRef.current = screenStream;
+
+      // Add track ended listener to clean up when screen sharing stops
+      screenStream.getVideoTracks()[ 0 ].addEventListener( "ended", () => {
+        screenStreamRef.current = null;
+        // Notify other participants that screen sharing has ended
+        // This would require additional server-side implementation
+      } );
+
       participants.forEach( ( user ) => {
         if ( user.peerId === peerRef.current.id ) return;
         const call = peerRef.current.call( user.peerId, screenStream, {
@@ -200,119 +270,254 @@ const App = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 text-slate-800 dark:text-slate-100">
       { !joined ? (
         <div className="flex items-center justify-center min-h-screen p-4">
-          <div className="w-full max-w-md p-8 space-y-6 bg-white dark:bg-slate-800 rounded-2xl shadow-lg">
-            <div className="text-center">
+          <div className="w-full max-w-md p-8 space-y-6 bg-white dark:bg-slate-800 rounded-2xl shadow-lg relative overflow-hidden">
+            {/* Decorative elements */ }
+            <div className="absolute -top-24 -right-24 w-48 h-48 bg-blue-500/10 rounded-full blur-2xl"></div>
+            <div className="absolute -bottom-16 -left-16 w-40 h-40 bg-blue-500/10 rounded-full blur-xl"></div>
+
+            <div className="text-center relative">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg mb-4">
+                <Volume2 className="h-8 w-8 text-white" />
+              </div>
               <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Join Audio Conference</h1>
               <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Connect with your team in real-time</p>
             </div>
 
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="name" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+            <div className="space-y-5 relative">
+              <div className="group">
+                <label htmlFor="name" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
                   Your Name
                 </label>
-                <input
-                  id="name"
-                  placeholder="Enter your name"
-                  className="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white transition"
-                  value={ name }
-                  onChange={ ( e ) => setName( e.target.value ) }
-                />
+                <div className="relative">
+                  <input
+                    id="name"
+                    placeholder="Enter your name"
+                    className="w-full px-4 py-3 pl-10 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white transition"
+                    value={ name }
+                    onChange={ ( e ) => setName( e.target.value ) }
+                  />
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500">
+                    <Users className="h-5 w-5" />
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <label htmlFor="room" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+              <div className="group">
+                <label htmlFor="room" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
                   Room Name
                 </label>
-                <input
-                  id="room"
-                  placeholder="Enter room name"
-                  className="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white transition"
-                  value={ room }
-                  onChange={ ( e ) => setRoom( e.target.value ) }
-                />
+                <div className="relative">
+                  <input
+                    id="room"
+                    placeholder="Enter room name"
+                    className="w-full px-4 py-3 pl-10 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white transition"
+                    value={ room }
+                    onChange={ ( e ) => setRoom( e.target.value ) }
+                  />
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500">
+                    <MessageSquare className="h-5 w-5" />
+                  </div>
+                </div>
               </div>
 
-              <label className="flex items-center space-x-3 text-sm cursor-pointer">
-                <div className="relative flex items-center">
-                  <input
-                    type="checkbox"
-                    className="sr-only"
-                    checked={ noiseCancellation }
-                    onChange={ ( e ) => setNoiseCancellation( e.target.checked ) }
-                  />
+              <div className="space-y-4">
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Audio Settings
+                </label>
+
+                {/* Custom checkbox for noise cancellation */ }
+                <div
+                  className="flex items-center p-3 bg-slate-50 dark:bg-slate-900 rounded-xl cursor-pointer transition-all hover:bg-slate-100 dark:hover:bg-slate-800"
+                  onClick={ () => setNoiseCancellation( !noiseCancellation ) }
+                >
+                  <div className="relative">
+                    <div
+                      className={ `w-12 h-6 rounded-full transition-colors duration-300 ${ noiseCancellation ? "bg-gradient-to-r from-blue-400 to-blue-600" : "bg-slate-300 dark:bg-slate-700" }` }
+                    >
+                      <div
+                        className={ `absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-md transform transition-transform duration-300 ${ noiseCancellation ? "translate-x-6" : "" }` }
+                      >
+                        { noiseCancellation && (
+                          <div className="absolute inset-0 flex items-center justify-center text-blue-500">
+                            <Sparkles className="h-3 w-3" />
+                          </div>
+                        ) }
+                      </div>
+                    </div>
+                  </div>
+                  <div className="ml-3 flex-1">
+                    <div className="font-medium">Noise Cancellation</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                      Reduce background noise during calls
+                    </div>
+                  </div>
                   <div
-                    className={ `w-10 h-5 ${ noiseCancellation ? "bg-blue-500" : "bg-slate-300 dark:bg-slate-700" } rounded-full transition` }
-                  ></div>
-                  <div
-                    className={ `absolute left-0.5 top-0.5 bg-white w-4 h-4 rounded-full transition transform ${ noiseCancellation ? "translate-x-5" : "" }` }
-                  ></div>
+                    className={ `text-xs font-medium px-2 py-1 rounded-full ${ noiseCancellation ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" : "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-400" }` }
+                  >
+                    { noiseCancellation ? "ON" : "OFF" }
+                  </div>
                 </div>
-                <span className="text-slate-700 dark:text-slate-300">Enable Noise Cancellation</span>
-              </label>
+
+                {/* Audio quality selector */ }
+                <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="font-medium flex items-center">
+                      <Waves className="h-4 w-4 mr-2 text-slate-500" />
+                      Audio Quality
+                    </div>
+                    <div className="text-xs font-medium px-2 py-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                      { audioQuality.toUpperCase() }
+                    </div>
+                  </div>
+                  <div className="flex space-x-2">
+                    { [ "low", "medium", "high" ].map( ( quality ) => (
+                      <button
+                        key={ quality }
+                        onClick={ () => setAudioQuality( quality ) }
+                        className={ `flex-1 py-1.5 rounded-lg text-xs font-medium transition ${ audioQuality === quality
+                          ? "bg-blue-500 text-white"
+                          : "bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
+                          }` }
+                      >
+                        { quality.charAt( 0 ).toUpperCase() + quality.slice( 1 ) }
+                      </button>
+                    ) ) }
+                  </div>
+                </div>
+              </div>
             </div>
 
             <button
               onClick={ handleJoin }
-              className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              className="w-full py-3.5 px-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-medium rounded-xl transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-lg shadow-blue-500/20 relative overflow-hidden group"
             >
-              Join Room
+              <div className="absolute inset-0 w-full h-full scale-0 rounded-xl transition-all duration-300 group-hover:scale-100 group-hover:bg-white/10"></div>
+              <span className="relative flex items-center justify-center">
+                Join Room
+                <ChevronRight className="h-4 w-4 ml-1 group-hover:translate-x-1 transition-transform" />
+              </span>
             </button>
+
+            <div className="flex items-center justify-center space-x-4 pt-2">
+              <div className="flex items-center text-xs text-slate-500 dark:text-slate-400">
+                <Shield className="h-3 w-3 mr-1" />
+                Secure
+              </div>
+              <div className="flex items-center text-xs text-slate-500 dark:text-slate-400">
+                <Zap className="h-3 w-3 mr-1" />
+                Low Latency
+              </div>
+              <div className="flex items-center text-xs text-slate-500 dark:text-slate-400">
+                <Settings className="h-3 w-3 mr-1" />
+                Customizable
+              </div>
+            </div>
+
+            <p className="text-xs text-center text-slate-500 dark:text-slate-400">
+              Note: This is a demo application. In a production environment, you would need to configure a Socket.IO
+              server.
+            </p>
           </div>
         </div>
       ) : (
         <div className="container mx-auto p-4 max-w-6xl">
-          <header className="flex items-center justify-between py-4 border-b border-slate-200 dark:border-slate-700 mb-6">
-            <div className="flex items-center space-x-2">
-              <Volume2 className="h-6 w-6 text-blue-500" />
-              <h1 className="text-xl font-bold">Audio Conference</h1>
+          <header className="flex items-center justify-between py-4 px-6 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 mb-6">
+            <div className="flex items-center space-x-3">
+              <div className="bg-blue-500 text-white p-2 rounded-lg">
+                <Volume2 className="h-5 w-5" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold">Audio Conference</h1>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Connected as { name }</p>
+              </div>
             </div>
-            <div className="px-3 py-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full text-sm font-medium">
-              Room: { room }
+            <div className="flex items-center space-x-3">
+              <div
+                className={ `px-3 py-1.5 rounded-full text-sm font-medium flex items-center ${ socketStatus === "connected"
+                  ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300"
+                  : socketStatus === "error"
+                    ? "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300"
+                    : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300"
+                  }` }
+              >
+                <span
+                  className={ `w-2 h-2 rounded-full mr-2 ${ socketStatus === "connected"
+                    ? "bg-green-500"
+                    : socketStatus === "error"
+                      ? "bg-red-500"
+                      : "bg-yellow-500"
+                    }` }
+                ></span>
+                { socketStatus === "connected"
+                  ? "Connected"
+                  : socketStatus === "error"
+                    ? "Connection Error"
+                    : "Disconnected" }
+              </div>
+              <div className="px-3 py-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full text-sm font-medium flex items-center">
+                <MessageSquare className="h-3.5 w-3.5 mr-1.5" />
+                Room: { room }
+              </div>
             </div>
           </header>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
               {/* Controls */ }
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap gap-3 p-4 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
                 <button
                   onClick={ toggleMute }
-                  className={ `flex items-center space-x-2 px-4 py-2.5 rounded-lg font-medium transition ${ muted
+                  className={ `flex items-center space-x-2 px-5 py-3 rounded-xl font-medium transition ${ muted
                     ? "bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50"
                     : "bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50"
                     }` }
                 >
-                  { muted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" /> }
+                  { muted ? <MicOff className="h-5 w-5 mr-2" /> : <Mic className="h-5 w-5 mr-2" /> }
                   <span>{ muted ? "Unmute" : "Mute" }</span>
                 </button>
 
                 <button
                   onClick={ shareScreen }
-                  className="flex items-center space-x-2 px-4 py-2.5 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:hover:bg-emerald-900/50 rounded-lg font-medium transition"
+                  className="flex items-center space-x-2 px-5 py-3 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:hover:bg-emerald-900/50 rounded-xl font-medium transition"
                 >
-                  <Monitor className="h-4 w-4" />
+                  <Monitor className="h-5 w-5 mr-2" />
                   <span>Share Screen</span>
+                </button>
+
+                <button className="flex items-center space-x-2 px-5 py-3 bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600 rounded-xl font-medium transition">
+                  <Settings className="h-5 w-5 mr-2" />
+                  <span>Settings</span>
                 </button>
               </div>
 
               {/* Shared Screens */ }
-              <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-5 border border-slate-200 dark:border-slate-700">
-                <div className="flex items-center space-x-2 mb-4">
-                  <Monitor className="h-5 w-5 text-slate-500" />
+              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 border border-slate-200 dark:border-slate-700">
+                <div className="flex items-center space-x-2 mb-5">
+                  <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg text-emerald-700 dark:text-emerald-400">
+                    <Monitor className="h-5 w-5" />
+                  </div>
                   <h2 className="font-semibold text-lg">Shared Screens</h2>
                 </div>
 
                 { Object.keys( screens ).length === 0 ? (
-                  <div className="text-center py-8 text-slate-500 dark:text-slate-400">
-                    <p>No screens are currently being shared</p>
+                  <div className="text-center py-12 px-6 bg-slate-50 dark:bg-slate-900 rounded-xl">
+                    <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full mb-4">
+                      <Monitor className="h-8 w-8 text-slate-400" />
+                    </div>
+                    <p className="text-slate-500 dark:text-slate-400 mb-2">No screens are currently being shared</p>
+                    <button
+                      onClick={ shareScreen }
+                      className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      Share your screen
+                    </button>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     { Object.entries( screens ).map( ( [ user, stream ] ) => (
                       <div
                         key={ user }
-                        className="cursor-pointer overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 transition group"
+                        className="cursor-pointer overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 transition group shadow-sm hover:shadow-md"
                         onClick={ () => setViewScreen( stream ) }
                       >
                         <div className="relative aspect-video bg-slate-100 dark:bg-slate-900">
@@ -324,12 +529,13 @@ const App = () => {
                             className="w-full h-full object-cover"
                           ></video>
                           <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition">
-                            <div className="bg-white dark:bg-slate-800 rounded-full p-2">
+                            <div className="bg-white dark:bg-slate-800 rounded-full p-2.5 transform scale-90 group-hover:scale-100 transition-transform">
                               <Monitor className="h-5 w-5 text-blue-500" />
                             </div>
                           </div>
                         </div>
-                        <div className="p-2 text-center text-sm font-medium bg-slate-50 dark:bg-slate-900/50">
+                        <div className="p-3 text-center font-medium bg-slate-50 dark:bg-slate-900/50 flex items-center justify-center">
+                          <span className="w-2 h-2 bg-emerald-500 rounded-full mr-2"></span>
                           { user }
                         </div>
                       </div>
@@ -339,21 +545,28 @@ const App = () => {
               </div>
 
               {/* Room Events */ }
-              <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-5 border border-slate-200 dark:border-slate-700">
-                <div className="flex items-center space-x-2 mb-4">
-                  <MessageSquare className="h-5 w-5 text-slate-500" />
+              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 border border-slate-200 dark:border-slate-700">
+                <div className="flex items-center space-x-2 mb-5">
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-blue-700 dark:text-blue-400">
+                    <MessageSquare className="h-5 w-5" />
+                  </div>
                   <h2 className="font-semibold text-lg">Room Events</h2>
                 </div>
 
-                <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3 max-h-48 overflow-y-auto">
+                <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-4 max-h-48 overflow-y-auto">
                   { messageLog.length === 0 ? (
-                    <p className="text-center py-4 text-slate-500 dark:text-slate-400">No events yet</p>
+                    <div className="text-center py-6">
+                      <div className="inline-flex items-center justify-center w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-full mb-3">
+                        <MessageSquare className="h-6 w-6 text-slate-400" />
+                      </div>
+                      <p className="text-slate-500 dark:text-slate-400">No events yet</p>
+                    </div>
                   ) : (
-                    <ul className="space-y-1.5 text-sm">
+                    <ul className="space-y-2.5 text-sm">
                       { messageLog.map( ( log, index ) => (
-                        <li key={ index } className="flex items-start">
-                          <span className="text-xs text-slate-500 dark:text-slate-400 font-mono mr-2">
-                            [{ log.time }]
+                        <li key={ index } className="flex items-start bg-white dark:bg-slate-800 p-2.5 rounded-lg">
+                          <span className="text-xs text-slate-500 dark:text-slate-400 font-mono mr-2 bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded">
+                            { log.time }
                           </span>
                           <span className="text-slate-700 dark:text-slate-300">{ log.message }</span>
                         </li>
@@ -365,35 +578,51 @@ const App = () => {
             </div>
 
             {/* Participants */ }
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-5 border border-slate-200 dark:border-slate-700 h-fit">
-              <div className="flex items-center space-x-2 mb-4">
-                <Users className="h-5 w-5 text-slate-500" />
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 border border-slate-200 dark:border-slate-700 h-fit">
+              <div className="flex items-center space-x-2 mb-5">
+                <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg text-purple-700 dark:text-purple-400">
+                  <Users className="h-5 w-5" />
+                </div>
                 <h2 className="font-semibold text-lg">Participants ({ participants.length + 1 })</h2>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <div
-                  className={ `flex items-center p-3 rounded-lg ${ speaking[ "You" ]
-                    ? "bg-green-100 dark:bg-green-900/30 border-l-4 border-green-500"
+                  className={ `flex items-center p-3.5 rounded-xl transition-all ${ speaking[ "You" ]
+                    ? "bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-900/30 border-l-4 border-green-500"
                     : "bg-slate-50 dark:bg-slate-900"
                     }` }
                 >
                   <div
-                    className={ `w-8 h-8 rounded-full flex items-center justify-center ${ speaking[ "You" ]
-                      ? "bg-green-500 text-white"
-                      : "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300"
+                    className={ `w-10 h-10 rounded-full flex items-center justify-center ${ speaking[ "You" ]
+                      ? "bg-gradient-to-br from-green-500 to-green-600 text-white"
+                      : "bg-gradient-to-br from-blue-500 to-blue-600 text-white"
                       }` }
                   >
                     { name.charAt( 0 ).toUpperCase() }
                   </div>
-                  <div className="ml-3">
-                    <p className="font-medium">You { muted && "(Muted)" }</p>
+                  <div className="ml-3 flex-1">
+                    <p className="font-medium">You</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{ muted ? "Muted" : "Unmuted" }</p>
                   </div>
-                  { speaking[ "You" ] && (
+                  { speaking[ "You" ] ? (
                     <div className="ml-auto flex space-x-1">
                       <div className="w-1 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                      <div className="w-1 h-4 bg-green-500 rounded-full animate-pulse delay-75"></div>
+                      <div className="w-1 h-5 bg-green-500 rounded-full animate-pulse delay-75"></div>
                       <div className="w-1 h-2 bg-green-500 rounded-full animate-pulse delay-150"></div>
+                      <div className="w-1 h-4 bg-green-500 rounded-full animate-pulse delay-300"></div>
+                    </div>
+                  ) : (
+                    <div className="ml-auto">
+                      { muted ? (
+                        <div className="p-1.5 bg-red-100 dark:bg-red-900/30 rounded-full">
+                          <MicOff className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
+                        </div>
+                      ) : (
+                        <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-full">
+                          <Mic className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                        </div>
+                      ) }
                     </div>
                   ) }
                 </div>
@@ -401,41 +630,62 @@ const App = () => {
                 { participants.map( ( p ) => (
                   <div
                     key={ p.peerId }
-                    className={ `flex items-center p-3 rounded-lg ${ speaking[ p.name ]
-                      ? "bg-green-100 dark:bg-green-900/30 border-l-4 border-green-500"
+                    className={ `flex items-center p-3.5 rounded-xl transition-all ${ speaking[ p.name ]
+                      ? "bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-900/30 border-l-4 border-green-500"
                       : "bg-slate-50 dark:bg-slate-900"
                       }` }
                   >
                     <div
-                      className={ `w-8 h-8 rounded-full flex items-center justify-center ${ speaking[ p.name ]
-                        ? "bg-green-500 text-white"
-                        : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
+                      className={ `w-10 h-10 rounded-full flex items-center justify-center ${ speaking[ p.name ]
+                        ? "bg-gradient-to-br from-green-500 to-green-600 text-white"
+                        : "bg-gradient-to-br from-slate-400 to-slate-500 text-white dark:from-slate-600 dark:to-slate-700"
                         }` }
                     >
                       { p.name.charAt( 0 ).toUpperCase() }
                     </div>
-                    <div className="ml-3">
+                    <div className="ml-3 flex-1">
                       <p className="font-medium">{ p.name }</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Participant</p>
                     </div>
-                    { speaking[ p.name ] && (
+                    { speaking[ p.name ] ? (
                       <div className="ml-auto flex space-x-1">
                         <div className="w-1 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                        <div className="w-1 h-4 bg-green-500 rounded-full animate-pulse delay-75"></div>
+                        <div className="w-1 h-5 bg-green-500 rounded-full animate-pulse delay-75"></div>
                         <div className="w-1 h-2 bg-green-500 rounded-full animate-pulse delay-150"></div>
+                        <div className="w-1 h-4 bg-green-500 rounded-full animate-pulse delay-300"></div>
+                      </div>
+                    ) : (
+                      <div className="ml-auto">
+                        <div className="p-1.5 bg-slate-200 dark:bg-slate-700 rounded-full">
+                          <Mic className="h-3.5 w-3.5 text-slate-600 dark:text-slate-400" />
+                        </div>
                       </div>
                     ) }
                   </div>
                 ) ) }
               </div>
+
+              { participants.length === 0 && (
+                <div className="text-center py-6 mt-3 bg-slate-50 dark:bg-slate-900 rounded-xl">
+                  <div className="inline-flex items-center justify-center w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-full mb-3">
+                    <Users className="h-6 w-6 text-slate-400" />
+                  </div>
+                  <p className="text-slate-500 dark:text-slate-400">Waiting for others to join</p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Share the room name with others</p>
+                </div>
+              ) }
             </div>
           </div>
 
           {/* Fullscreen view */ }
           { viewScreen && (
             <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
-              <div className="relative bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-5xl w-full max-h-[90vh] overflow-hidden">
+              <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-xl max-w-5xl w-full max-h-[90vh] overflow-hidden">
                 <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
-                  <h3 className="font-semibold">Shared Screen</h3>
+                  <h3 className="font-semibold flex items-center">
+                    <Monitor className="h-5 w-5 mr-2 text-emerald-500" />
+                    Shared Screen
+                  </h3>
                   <button
                     onClick={ () => setViewScreen( null ) }
                     className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition"
@@ -451,6 +701,14 @@ const App = () => {
                     muted
                     className="w-full h-auto max-h-[70vh] object-contain bg-slate-900 rounded-lg"
                   ></video>
+                </div>
+                <div className="p-4 border-t border-slate-200 dark:border-slate-700 flex justify-end">
+                  <button
+                    onClick={ () => setViewScreen( null ) }
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-lg text-sm font-medium transition"
+                  >
+                    Close
+                  </button>
                 </div>
               </div>
             </div>
