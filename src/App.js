@@ -55,6 +55,7 @@ const App = () => {
           if ( isScreenShare ) {
             call.answer();
             call.on( "stream", ( remoteStream ) => {
+              console.log( remoteStream );
               setScreens( ( prev ) => ( { ...prev, [ call.metadata.name ]: remoteStream } ) );
             } );
           } else {
@@ -258,9 +259,7 @@ const App = () => {
                   onClick={ () => setViewScreen( stream ) }
                 >
                   <video
-                    onLoad={ e => {
-                      e.target.srcObject = stream;
-                    } }
+
                     autoPlay
                     playsInline
                     muted
