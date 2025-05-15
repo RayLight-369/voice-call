@@ -280,7 +280,9 @@ const App = () => {
                     Close
                   </button>
                   <video
-                    srcObject={ viewScreen }
+                    onLoad={ e => {
+                      e.target.srcObject = viewScreen;
+                    } }
                     autoPlay
                     playsInline
                     muted
