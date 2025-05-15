@@ -1,7 +1,9 @@
-// FRONTEND: App.js
-import React, { useEffect, useRef, useState } from "react";
+"use client";
+
+import { useEffect, useRef, useState } from "react";
 import { socket } from "./socket.io";
 import Peer from "peerjs";
+import { Mic, MicOff, Monitor, Users, X, Volume2, MessageSquare } from "lucide-react";
 
 const App = () => {
   const [ muted, setMuted ] = useState( false );
@@ -104,7 +106,6 @@ const App = () => {
   }, [ joined, noiseCancellation ] );
 
   useEffect( () => {
-
     Object.entries( screens ).forEach( ( [ user, stream ] ) => {
       const video = screenRefs.current[ user ];
       if ( video && video.srcObject !== stream ) {
@@ -112,15 +113,12 @@ const App = () => {
         console.log( `${ user } video mounted and stream assigned.` );
       }
     } );
-
   }, [ screens ] );
 
   useEffect( () => {
-
     if ( viewScreen && currentVideoRef.current ) {
       currentVideoRef.current.srcObject = viewScreen;
     }
-
   }, [ viewScreen ] );
 
   const detectSpeech = ( id, stream ) => {
@@ -183,10 +181,7 @@ const App = () => {
   };
 
   const logEvent = ( message ) => {
-    setMessageLog( ( prev ) => [
-      ...prev,
-      { message, time: new Date().toLocaleTimeString() },
-    ] );
+    setMessageLog( ( prev ) => [ ...prev, { message, time: new Date().toLocaleTimeString() } ] );
   };
 
   const showNotification = ( text ) => {
@@ -202,133 +197,268 @@ const App = () => {
   };
 
   return (
-    <div className="p-4 space-y-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 text-slate-800 dark:text-slate-100">
       { !joined ? (
-        <div className="space-y-2">
-          <input
-            placeholder="Your Name"
-            className="border p-2 rounded w-full"
-            value={ name }
-            onChange={ ( e ) => setName( e.target.value ) }
-          />
-          <input
-            placeholder="Room Name"
-            className="border p-2 rounded w-full"
-            value={ room }
-            onChange={ ( e ) => setRoom( e.target.value ) }
-          />
-          <label className="flex items-center space-x-2 text-sm">
-            <input
-              type="checkbox"
-              checked={ noiseCancellation }
-              onChange={ ( e ) => setNoiseCancellation( e.target.checked ) }
-            />
-            <span>Enable Noise Cancellation</span>
-          </label>
-          <button
-            onClick={ handleJoin }
-            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 w-full"
-          >
-            Join Room
-          </button>
-        </div>
-      ) : (
-        <>
-          <h1 className="text-xl font-bold">🔊 Group Audio Call - Room: { room }</h1>
-          <div className="flex gap-2">
+        <div className="flex items-center justify-center min-h-screen p-4">
+          <div className="w-full max-w-md p-8 space-y-6 bg-white dark:bg-slate-800 rounded-2xl shadow-lg">
+            <div className="text-center">
+              <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Join Audio Conference</h1>
+              <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Connect with your team in real-time</p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="name" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Your Name
+                </label>
+                <input
+                  id="name"
+                  placeholder="Enter your name"
+                  className="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white transition"
+                  value={ name }
+                  onChange={ ( e ) => setName( e.target.value ) }
+                />
+              </div>
+
+              <div>
+                <label htmlFor="room" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Room Name
+                </label>
+                <input
+                  id="room"
+                  placeholder="Enter room name"
+                  className="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white transition"
+                  value={ room }
+                  onChange={ ( e ) => setRoom( e.target.value ) }
+                />
+              </div>
+
+              <label className="flex items-center space-x-3 text-sm cursor-pointer">
+                <div className="relative flex items-center">
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={ noiseCancellation }
+                    onChange={ ( e ) => setNoiseCancellation( e.target.checked ) }
+                  />
+                  <div
+                    className={ `w-10 h-5 ${ noiseCancellation ? "bg-blue-500" : "bg-slate-300 dark:bg-slate-700" } rounded-full transition` }
+                  ></div>
+                  <div
+                    className={ `absolute left-0.5 top-0.5 bg-white w-4 h-4 rounded-full transition transform ${ noiseCancellation ? "translate-x-5" : "" }` }
+                  ></div>
+                </div>
+                <span className="text-slate-700 dark:text-slate-300">Enable Noise Cancellation</span>
+              </label>
+            </div>
+
             <button
-              onClick={ toggleMute }
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              onClick={ handleJoin }
+              className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
             >
-              { muted ? "Unmute Mic" : "Mute Mic" }
-            </button>
-            <button
-              onClick={ shareScreen }
-              className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700"
-            >
-              Share Screen
+              Join Room
             </button>
           </div>
+        </div>
+      ) : (
+        <div className="container mx-auto p-4 max-w-6xl">
+          <header className="flex items-center justify-between py-4 border-b border-slate-200 dark:border-slate-700 mb-6">
+            <div className="flex items-center space-x-2">
+              <Volume2 className="h-6 w-6 text-blue-500" />
+              <h1 className="text-xl font-bold">Audio Conference</h1>
+            </div>
+            <div className="px-3 py-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full text-sm font-medium">
+              Room: { room }
+            </div>
+          </header>
 
-          <div className="mt-4">
-            <h2 className="font-semibold">Participants:</h2>
-            <div className="grid grid-cols-5 gap-4">
-              { participants.map( ( p ) => (
-                <div
-                  key={ p.peerId }
-                  className={ `px-2 py-1 rounded ${ speaking[ p.name ] ? "border-2 border-green-500 animate-pulse" : "border border-gray-300"
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+              {/* Controls */ }
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={ toggleMute }
+                  className={ `flex items-center space-x-2 px-4 py-2.5 rounded-lg font-medium transition ${ muted
+                    ? "bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50"
+                    : "bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50"
                     }` }
                 >
-                  { p.name }
+                  { muted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" /> }
+                  <span>{ muted ? "Unmute" : "Mute" }</span>
+                </button>
+
+                <button
+                  onClick={ shareScreen }
+                  className="flex items-center space-x-2 px-4 py-2.5 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:hover:bg-emerald-900/50 rounded-lg font-medium transition"
+                >
+                  <Monitor className="h-4 w-4" />
+                  <span>Share Screen</span>
+                </button>
+              </div>
+
+              {/* Shared Screens */ }
+              <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-5 border border-slate-200 dark:border-slate-700">
+                <div className="flex items-center space-x-2 mb-4">
+                  <Monitor className="h-5 w-5 text-slate-500" />
+                  <h2 className="font-semibold text-lg">Shared Screens</h2>
                 </div>
-              ) ) }
-              <div
-                className={ `px-2 py-1 rounded ${ speaking[ "You" ] ? "border-2 border-green-500 animate-pulse" : "border border-gray-300"
-                  }` }
-              >
-                You
+
+                { Object.keys( screens ).length === 0 ? (
+                  <div className="text-center py-8 text-slate-500 dark:text-slate-400">
+                    <p>No screens are currently being shared</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    { Object.entries( screens ).map( ( [ user, stream ] ) => (
+                      <div
+                        key={ user }
+                        className="cursor-pointer overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 transition group"
+                        onClick={ () => setViewScreen( stream ) }
+                      >
+                        <div className="relative aspect-video bg-slate-100 dark:bg-slate-900">
+                          <video
+                            ref={ ( el ) => ( screenRefs.current[ user ] = el ) }
+                            autoPlay
+                            playsInline
+                            muted
+                            className="w-full h-full object-cover"
+                          ></video>
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition">
+                            <div className="bg-white dark:bg-slate-800 rounded-full p-2">
+                              <Monitor className="h-5 w-5 text-blue-500" />
+                            </div>
+                          </div>
+                        </div>
+                        <div className="p-2 text-center text-sm font-medium bg-slate-50 dark:bg-slate-900/50">
+                          { user }
+                        </div>
+                      </div>
+                    ) ) }
+                  </div>
+                ) }
+              </div>
+
+              {/* Room Events */ }
+              <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-5 border border-slate-200 dark:border-slate-700">
+                <div className="flex items-center space-x-2 mb-4">
+                  <MessageSquare className="h-5 w-5 text-slate-500" />
+                  <h2 className="font-semibold text-lg">Room Events</h2>
+                </div>
+
+                <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3 max-h-48 overflow-y-auto">
+                  { messageLog.length === 0 ? (
+                    <p className="text-center py-4 text-slate-500 dark:text-slate-400">No events yet</p>
+                  ) : (
+                    <ul className="space-y-1.5 text-sm">
+                      { messageLog.map( ( log, index ) => (
+                        <li key={ index } className="flex items-start">
+                          <span className="text-xs text-slate-500 dark:text-slate-400 font-mono mr-2">
+                            [{ log.time }]
+                          </span>
+                          <span className="text-slate-700 dark:text-slate-300">{ log.message }</span>
+                        </li>
+                      ) ) }
+                    </ul>
+                  ) }
+                </div>
+              </div>
+            </div>
+
+            {/* Participants */ }
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-5 border border-slate-200 dark:border-slate-700 h-fit">
+              <div className="flex items-center space-x-2 mb-4">
+                <Users className="h-5 w-5 text-slate-500" />
+                <h2 className="font-semibold text-lg">Participants ({ participants.length + 1 })</h2>
+              </div>
+
+              <div className="space-y-2">
+                <div
+                  className={ `flex items-center p-3 rounded-lg ${ speaking[ "You" ]
+                    ? "bg-green-100 dark:bg-green-900/30 border-l-4 border-green-500"
+                    : "bg-slate-50 dark:bg-slate-900"
+                    }` }
+                >
+                  <div
+                    className={ `w-8 h-8 rounded-full flex items-center justify-center ${ speaking[ "You" ]
+                      ? "bg-green-500 text-white"
+                      : "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300"
+                      }` }
+                  >
+                    { name.charAt( 0 ).toUpperCase() }
+                  </div>
+                  <div className="ml-3">
+                    <p className="font-medium">You { muted && "(Muted)" }</p>
+                  </div>
+                  { speaking[ "You" ] && (
+                    <div className="ml-auto flex space-x-1">
+                      <div className="w-1 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                      <div className="w-1 h-4 bg-green-500 rounded-full animate-pulse delay-75"></div>
+                      <div className="w-1 h-2 bg-green-500 rounded-full animate-pulse delay-150"></div>
+                    </div>
+                  ) }
+                </div>
+
+                { participants.map( ( p ) => (
+                  <div
+                    key={ p.peerId }
+                    className={ `flex items-center p-3 rounded-lg ${ speaking[ p.name ]
+                      ? "bg-green-100 dark:bg-green-900/30 border-l-4 border-green-500"
+                      : "bg-slate-50 dark:bg-slate-900"
+                      }` }
+                  >
+                    <div
+                      className={ `w-8 h-8 rounded-full flex items-center justify-center ${ speaking[ p.name ]
+                        ? "bg-green-500 text-white"
+                        : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
+                        }` }
+                    >
+                      { p.name.charAt( 0 ).toUpperCase() }
+                    </div>
+                    <div className="ml-3">
+                      <p className="font-medium">{ p.name }</p>
+                    </div>
+                    { speaking[ p.name ] && (
+                      <div className="ml-auto flex space-x-1">
+                        <div className="w-1 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                        <div className="w-1 h-4 bg-green-500 rounded-full animate-pulse delay-75"></div>
+                        <div className="w-1 h-2 bg-green-500 rounded-full animate-pulse delay-150"></div>
+                      </div>
+                    ) }
+                  </div>
+                ) ) }
               </div>
             </div>
           </div>
 
-          <div className="mt-4">
-            <h2 className="font-semibold">Shared Screens:</h2>
-            <div className="grid grid-cols-3 gap-2">
-              { Object.entries( screens ).map( ( [ user, stream ] ) => (
-                <div
-                  key={ user }
-                  className="cursor-pointer border rounded overflow-hidden"
-                  onClick={ () => setViewScreen( stream ) }
-                >
-                  <video
-                    ref={ rel => screenRefs.current[ user ] = rel }
-                    autoPlay
-                    playsInline
-                    muted
-                    style={ { width: "100%", height: "auto" } }
-                  ></video>
-                  <div className="text-center text-sm bg-gray-200">{ user }</div>
-                </div>
-              ) ) }
-            </div>
-            { viewScreen && (
-              <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
-                <div className="relative bg-white rounded shadow p-4">
+          {/* Fullscreen view */ }
+          { viewScreen && (
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
+              <div className="relative bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-5xl w-full max-h-[90vh] overflow-hidden">
+                <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                  <h3 className="font-semibold">Shared Screen</h3>
                   <button
                     onClick={ () => setViewScreen( null ) }
-                    className="absolute top-2 right-2 text-sm text-red-500"
+                    className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition"
                   >
-                    Close
+                    <X className="h-5 w-5" />
                   </button>
+                </div>
+                <div className="p-4">
                   <video
                     ref={ currentVideoRef }
                     autoPlay
                     playsInline
                     muted
-                    style={ { width: "80vw", height: "80vh" } }
+                    className="w-full h-auto max-h-[70vh] object-contain bg-slate-900 rounded-lg"
                   ></video>
                 </div>
               </div>
-            ) }
-          </div>
-
-          <div className="mt-4">
-            <h2 className="font-semibold">Room Events:</h2>
-            <ul className="bg-gray-100 p-2 rounded max-h-48 overflow-y-auto text-sm">
-              { messageLog.map( ( log, index ) => (
-                <li key={ index }>
-                  [{ log.time }] { log.message }
-                </li>
-              ) ) }
-            </ul>
-          </div>
-        </>
+            </div>
+          ) }
+        </div>
       ) }
     </div>
   );
 };
 
 export default App;
-
-// BACKEND doesn't need changes for screen sharing as it's handled via peerjs
-// No change required in the server-side socket.io code
