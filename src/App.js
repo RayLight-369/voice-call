@@ -102,6 +102,18 @@ const App = () => {
     init();
   }, [ joined, noiseCancellation ] );
 
+  useEffect( () => {
+
+    Object.entries( screens ).forEach( ( [ user, stream ] ) => {
+      const video = screenRefs.current[ user ];
+      if ( video && video.srcObject !== stream ) {
+        video.srcObject = stream;
+        console.log( `${ user } video mounted and stream assigned.` );
+      }
+    } );
+
+  }, [ screens ] );
+
   const detectSpeech = ( id, stream ) => {
     const audioContext = new AudioContext();
     const analyser = audioContext.createAnalyser();
@@ -260,7 +272,7 @@ const App = () => {
                   onClick={ () => setViewScreen( stream ) }
                 >
                   <video
-                    onLoadStart={ () => { console.log( user, "done!" ); } }
+                    ref={ rel => screenRefs.current[ user ] = rel }
                     autoPlay
                     playsInline
                     muted
