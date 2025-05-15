@@ -21,6 +21,7 @@ const App = () => {
   const connectionsRef = useRef( {} );
   const screenConnectionsRef = useRef( {} );
   const audioAnalyzersRef = useRef( {} );
+  const screenRefs = useRef( {} );
 
   useEffect( () => {
     socket.connect();
@@ -257,7 +258,10 @@ const App = () => {
                   onClick={ () => setViewScreen( stream ) }
                 >
                   <video
-                    srcObject={ stream }
+                    ref={ rel => {
+                      if ( rel ) screenRefs.current[ user ] = rel;
+                      rel.srcObject = stream;
+                    } }
                     autoPlay
                     playsInline
                     muted
