@@ -22,6 +22,7 @@ const App = () => {
   const screenConnectionsRef = useRef( {} );
   const audioAnalyzersRef = useRef( {} );
   const screenRefs = useRef( {} );
+  const currentVideoRef = useRef( null );
 
   useEffect( () => {
     socket.connect();
@@ -113,6 +114,14 @@ const App = () => {
     } );
 
   }, [ screens ] );
+
+  useEffect( () => {
+
+    if ( viewScreen && currentVideoRef.current ) {
+      currentVideoRef.current.srcObject = viewScreen;
+    }
+
+  }, [ viewScreen ] );
 
   const detectSpeech = ( id, stream ) => {
     const audioContext = new AudioContext();
@@ -292,9 +301,7 @@ const App = () => {
                     Close
                   </button>
                   <video
-                    onLoad={ e => {
-                      e.target.srcObject = viewScreen;
-                    } }
+                    ref={ currentVideoRef }
                     autoPlay
                     playsInline
                     muted
