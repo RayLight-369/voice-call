@@ -258,9 +258,8 @@ const App = () => {
                   onClick={ () => setViewScreen( stream ) }
                 >
                   <video
-                    ref={ rel => {
-                      if ( rel ) screenRefs.current[ user ] = rel;
-                      rel.srcObject = stream;
+                    onLoad={ e => {
+                      e.target.srcObject = stream;
                     } }
                     autoPlay
                     playsInline
