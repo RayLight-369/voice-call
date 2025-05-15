@@ -260,9 +260,7 @@ const App = () => {
                   onClick={ () => setViewScreen( stream ) }
                 >
                   <video
-                    onLoad={ () => {
-                      console.log( user, "done" );
-                    } }
+                    onLoadStart={ () => { console.log( user, "done!" ); } }
                     autoPlay
                     playsInline
                     muted
