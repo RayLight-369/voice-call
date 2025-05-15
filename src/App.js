@@ -52,6 +52,7 @@ const App = () => {
 
         peer.on( "call", ( call ) => {
           const isScreenShare = call.metadata?.screen;
+          console.log( isScreenShare );
           if ( isScreenShare ) {
             call.answer();
             call.on( "stream", ( remoteStream ) => {
