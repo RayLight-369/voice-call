@@ -1,6 +1,3 @@
-
-
-
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -118,26 +115,6 @@ const App = () => {
           } );
         } );
 
-        socket.on( "screen-sharers", ( sharers ) => {
-          sharers.forEach( ( sharerName ) => {
-            if ( sharerName === name ) return;
-            // Wait for screen sharer to send the stream
-          } );
-        } );
-
-        socket.on( "screen-share-started", ( sharerName ) => {
-          logEvent( `${ sharerName } started screen sharing` );
-        } );
-
-        socket.on( "screen-share-stopped", ( sharerName ) => {
-          setScreens( ( prev ) => {
-            const updated = { ...prev };
-            delete updated[ sharerName ];
-            return updated;
-          } );
-          logEvent( `${ sharerName } stopped screen sharing` );
-        } );
-
         socket.on( "user-joined", ( { name } ) => {
           logEvent( `${ name } joined the room` );
           showNotification( `${ name } joined the room` );
@@ -174,7 +151,7 @@ const App = () => {
       if ( screenStreamRef.current )
         screenStreamRef.current.getTracks().forEach( ( t ) => t.stop() );
     };
-  }, [ joined, noiseCancellation, isScreenSharing ] );
+  }, [ joined, noiseCancellation ] );
 
   useEffect( () => {
     Object.entries( screens ).forEach( ( [ user, stream ] ) => {
@@ -233,8 +210,6 @@ const App = () => {
       screenStreamRef.current = screenStream;
       setIsScreenSharing( true );
 
-      socket.emit( "start-screen-share", { name, room } );
-
       screenStream.getVideoTracks()[ 0 ].addEventListener( "ended", () => {
         screenStreamRef.current = null;
         setIsScreenSharing( false );
@@ -243,7 +218,6 @@ const App = () => {
           delete updated[ name ];
           return updated;
         } );
-        socket.emit( "stop-screen-share", { name, room } );
       } );
 
       setScreens( ( prev ) => ( { ...prev, [ name ]: screenStream } ) );
@@ -736,3 +710,6 @@ const App = () => {
 };
 
 export default App;
+
+
+
