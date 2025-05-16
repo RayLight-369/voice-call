@@ -683,16 +683,16 @@ const App = () => {
                     <X className="h-5 w-5" />
                   </button>
                 </div>
-                <div className="p-4">
+                <div className="p-2">
                   <video
                     ref={ currentVideoRef }
                     autoPlay
                     playsInline
                     muted
-                    className="w-full h-auto max-h-[70vh] object-contain bg-slate-900 rounded-lg"
+                    className="w-full h-auto max-h-[90vh] object-contain bg-slate-900 rounded-lg"
                   ></video>
                 </div>
-                <div className="p-4 border-t border-slate-200 dark:border-slate-700 flex justify-end">
+                <div className="p-2 border-t border-slate-200 dark:border-slate-700 flex justify-end">
                   <button
                     onClick={ () => setViewScreen( null ) }
                     className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-lg text-sm font-medium transition"
@@ -710,6 +710,3 @@ const App = () => {
 };
 
 export default App;
-
-
-
