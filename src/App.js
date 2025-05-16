@@ -670,20 +670,20 @@ const App = () => {
           {/* Fullscreen view */ }
           { viewScreen && (
             <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
-              <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-xl max-w-5xl w-full max-h-[90vh] overflow-hidden">
-                <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+              <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-xl max-w-[99vw] w-full max-h-[99vh] overflow-hidden">
+                <div className="p-2 px-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
                   <h3 className="font-semibold flex items-center">
-                    <Monitor className="h-5 w-5 mr-2 text-emerald-500" />
+                    <Monitor className="h-4 w-5 mr-2 text-emerald-500" />
                     Shared Screen
                   </h3>
                   <button
                     onClick={ () => setViewScreen( null ) }
                     className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition"
                   >
-                    <X className="h-5 w-5" />
+                    <X className="h-4 w-4" />
                   </button>
                 </div>
-                <div className="p-2">
+                <div className="p-4">
                   <video
                     ref={ currentVideoRef }
                     autoPlay
@@ -691,14 +691,6 @@ const App = () => {
                     muted
                     className="w-full h-auto max-h-[90vh] object-contain bg-slate-900 rounded-lg"
                   ></video>
-                </div>
-                <div className="p-2 border-t border-slate-200 dark:border-slate-700 flex justify-end">
-                  <button
-                    onClick={ () => setViewScreen( null ) }
-                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-lg text-sm font-medium transition"
-                  >
-                    Close
-                  </button>
                 </div>
               </div>
             </div>
